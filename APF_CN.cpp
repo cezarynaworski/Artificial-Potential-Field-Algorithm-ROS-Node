@@ -223,35 +223,36 @@ public:
 };
 
     // Basic Main Node function
-    int main(int argc, char **argv)
+int main(int argc, char **argv)
+{
+    float ref_x = 0.0f;
+    float ref_y = 0.0f;
+
+    if (argc >= 2)
     {
-        float ref_x = 0.0f;
-        float ref_y = 0.0f;
-
-        if (argc >= 2)
-        {
-            ref_x = atof(argv[1]);
-            ref_y = atof(argv[2]);
-        }
-
-        APF apf(ref_x, ref_y);
-        ros::init(argc, argv, "APF_CN");
-
-        ros::NodeHandle n;
-
-        ros::Subscriber scan_sub = n.subscribe<sensor_msgs::LaserScan>("/scan", 10, &APF::LASER_CALLBACK, &apf);
-        ros::Subscriber odom_sub = n.subscribe<nav_msgs::Odometry>("/odom", 10, &APF::ODO_CALLBACK, &apf);
-
-        ros::Publisher ctr_pub = n.advertise<geometry_msgs::Twist>("/cmd_vel", 10);
-
-        ros::Rate loop_rate(10);
-        while (ros::ok())
-        {
-            apf.compute();
-            apf.controller(ctr_pub);
-
-            ros::spinOnce();
-            loop_rate.sleep();
-        }
-        return 0;
+        ref_x = atof(argv[1]);
+        ref_y = atof(argv[2]);
     }
+
+    APF apf(ref_x, ref_y);
+    ros::init(argc, argv, "APF_CN");
+
+    ros::NodeHandle n;
+
+    ros::Subscriber scan_sub = n.subscribe<sensor_msgs::LaserScan>("/scan", 10, &APF::LASER_CALLBACK, &apf);
+    ros::Subscriber odom_sub = n.subscribe<nav_msgs::Odometry>("/odom", 10, &APF::ODO_CALLBACK, &apf);
+
+    ros::Publisher ctr_pub = n.advertise<geometry_msgs::Twist>("/cmd_vel", 10);
+
+    ros::Rate loop_rate(10);
+    while (ros::ok())
+    {
+        apf.compute();
+        apf.controller(ctr_pub);
+
+        ros::spinOnce();
+        loop_rate.sleep();
+    }
+    return 0;
+}
+//test change

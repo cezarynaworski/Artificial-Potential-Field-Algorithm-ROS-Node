@@ -186,11 +186,10 @@ public:
         {
             if (pkt != lidar_group[i])
             {
-                pkt != lidar_group[i];
+                pkt = lidar_group[i];
 
                 if (~isnan(minDistance) && ~isinf(minDistance) && minDistance < 1e9)
                 {
-                    // ROS_INFO("%d: Min dist %f, [%.2f, %.2f]", idx, minDistance, minX, minY);
                     if (minDistance<=APF_RANGE)
                     {
                         float U = APF_REP_COEFFICIENT * (1/APF_RANGE - 1/minDistance)

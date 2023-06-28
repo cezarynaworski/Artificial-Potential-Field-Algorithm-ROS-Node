@@ -1,11 +1,13 @@
 #include "ros/ros.h"
 #include <math.h>
-// #include <stdbool.h>
 #include "nav_msgs/Odometry.h"
 #include "sensor_msgs/LaserScan.h"
 #include "geometry_msgs/Twist.h"
 
 #define DEG2RAD(a) ((a) * (M_PI / 180.0f))
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
+
 
 class APF
 {
@@ -32,7 +34,6 @@ public:
 
     bool firstinit = false;
 
-    const float min_range = 0.1;
 
     // Move parameters
     const float omega_max = 0.2 * M_PI;
@@ -42,8 +43,9 @@ public:
     // APF parameters
     const float APF_ATT_COEFFICIENT = 1.1547f;
     const float APF_REP_COEFFICIENT = 0.0732f;
-    const float APF_RANGE = 1.0f;
+    const float APF_RANGE = 0.45f;
     const float APF_GOAL_MAXIMUM_DISTANCE_FOR_CALCULATION = 0.3f;
+    const float position_toleration=0.1;
 
     APF(float x, float y)
     {
@@ -58,7 +60,7 @@ public:
         position_y = msg->pose.pose.position.y;
         robot_theta = 2.0f * atan2(msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
 
-        ROSINFO("X=%f, Y=%f, Theta=%f", position_x, position_y, robot_theta);
+        ROS_INFO("X=%f, Y=%f, Theta=%f", position_x, position_y, robot_theta);
 
         degree_repair(robot_theta);
     }
@@ -112,7 +114,7 @@ public:
         lidar_group[0] = pkt;
         for (int i = 0; i < lidar_N; i++)
         {
-            if (isnan(lidar_distance[i]) || isinf(lidar_distance[i]))
+            if (isnan(ranges[i]) || isinf(ranges[i]))
             {
                 pkt++;
                 continue;
@@ -128,9 +130,9 @@ public:
             lidar_group[i] = pkt;
         }
 
-        if (~isnan(ranges[0]) && ~ising(ranges[lidar_N - 1]))
+        if (~isnan(ranges[0]) && ~isinf(ranges[lidar_N - 1]))
         {
-            if (fabs(ranges[0]) - ranges(lidar_N - 1) < 0.3)
+            if (fabs(ranges[0]) - ranges[lidar_N - 1] < 0.3)
             {
                 pkt--;
                 for (int i = lidar_N - 1; i > 0; i--)
@@ -155,24 +157,26 @@ public:
 
         float e = ref_angle - robot_theta;
         degree_repair(e);
-        float abs_e = min(error_theta_max, fabs(e));
+        float abs_e = MIN(error_theta_max, fabs(e));
         float reduction_coefficient = (error_theta_max - abs_e) / (error_theta_max);
-        msg.angular.z = min(max(1.5 * e, -omega_max), omega_max);
-        msg.linear.x = min(max(reduction_coefficient * v_ref, -v_max), v_max);
+        msg.angular.z = MIN(MAX(1.5 * e, (-1.0f)*omega_max), omega_max);
+        msg.linear.x = MIN(MAX(reduction_coefficient * v_ref, (-1.0f)*v_max), v_max);
 
         ctr_pub.publish(msg);
     }
 
     void compute()
-    {
+    {   
+        
         float distanceGoal = hypot(goal_x - position_x, goal_y - position_y);
+        if (distanceGoal>position_toleration){
         float U_att_x = APF_ATT_COEFFICIENT * (position_x - goal_x);
-        float U_att_y = APF_ATT_COEFFICIENT * (position_x - goal_x);
+        float U_att_y = APF_ATT_COEFFICIENT * (position_y - goal_y);
 
         if (distanceGoal > 0.3)
         {
             U_att_x *= 0.3 / distanceGoal;
-            U_att_x *= 0.3 / distanceGoal;
+            U_att_y *= 0.3 / distanceGoal;
         }
 
         float U_rep_x = 0;
@@ -193,7 +197,7 @@ public:
                     if (minDistance<=APF_RANGE)
                     {
                         float U = APF_REP_COEFFICIENT * (1/APF_RANGE - 1/minDistance)
-                                    /(pow(minDistance,2));
+                                    /(minDistance*minDistance);
                         U_rep_x +=U * (position_x - minX);
                         U_rep_y +=U * (position_y - minY);
                     }
@@ -204,9 +208,9 @@ public:
 
             }
 
-            if( lidar_distance[i] < minDistance )
+            if( ranges[i] < minDistance )
             {
-                minDistance = lidar_distance[i];
+                minDistance = ranges[i];
                 minX = lidar_x[i];
                 minY = lidar_y[i];
             }
@@ -217,8 +221,14 @@ public:
 
         v_ref = hypot(-U_x, -U_y);
         ref_angle = atan2(-U_y, -U_x);
-
+        }
+        else 
+        {
+            v_ref=0;
+            ref_angle=robot_theta;
+        }
     }
+    
 };
 
     // Basic Main Node function
@@ -254,4 +264,3 @@ int main(int argc, char **argv)
     }
     return 0;
 }
-//test change

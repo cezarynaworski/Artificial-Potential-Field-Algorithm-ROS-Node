@@ -1,4 +1,6 @@
 # APF
-APF - Potencial Field algorithm
-Works on Robot Operating System with gazebo simulation.
+Artificial Potential Field Algorithm Implementation for ROS (Robot Operating System)
+
 Work in progress. 
+
+
